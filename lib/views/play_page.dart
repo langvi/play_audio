@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:play_audio/models/song.dart';
 import 'package:play_audio/presenters/song_presenter.dart';
 import 'package:play_audio/utils/convert_value.dart';
@@ -22,10 +23,11 @@ class _PlayPageState extends State<PlayPage>
   SongPresenter _presenter;
   Song _song;
   Timer _timer;
-  double _currentValue = 0.0;
+  double _currentValueSeekBar = 0.0;
+  int _timeCount = 0;
   int _maxTime = 100;
-  int _time = 100;
   AnimationController animationController;
+  Animation<Color> colorTween;
   final _advancedPlayer = AudioPlayer();
   final audioCache = AudioCache();
   @override
@@ -36,6 +38,8 @@ class _PlayPageState extends State<PlayPage>
     animationController =
         AnimationController(vsync: this, duration: Duration(milliseconds: 200));
     animationController.forward();
+    colorTween = animationController
+        .drive(ColorTween(begin: Colors.blue, end: Colors.grey));
     setTimer();
 
     super.initState();
@@ -56,7 +60,7 @@ class _PlayPageState extends State<PlayPage>
         color: Colors.black54,
         child: Column(
           children: [
-             const SizedBox(
+            const SizedBox(
               height: 50,
             ),
             _buildAvatar(),
@@ -91,15 +95,6 @@ class _PlayPageState extends State<PlayPage>
       //     RaisedButton(
       //       onPressed: () async {
 
-      //         var status = await Permission.storage.status;
-      //         if (!status.isGranted) {
-      //           print('start');
-      //           await Permission.storage.request();
-      //           await _advancedPlayer.play(
-      //               '/storage/emulated/0/Download/music.mp3',
-      //               isLocal: true);
-      //         }
-
       //       },
       //       child: Text('OK'),
       //     )
@@ -122,16 +117,21 @@ class _PlayPageState extends State<PlayPage>
   }
 
   Widget _buildSeekBar() {
-    return Slider(
-      value: _currentValue,
-      activeColor: Colors.blue,
-      inactiveColor: Colors.grey,
-      onChanged: (value) {
-        // setState(() {
-        //   _currentValue = value;
-        // });
-      },
+    return LinearProgressIndicator(
+      backgroundColor: Colors.grey,
+      valueColor: colorTween,
+      value: _currentValueSeekBar / _maxTime,
     );
+    // return Slider(
+    //   value: _currentValue,
+    //   activeColor: Colors.blue,
+    //   inactiveColor: Colors.grey,
+    //   onChanged: (value) {
+    //     // setState(() {
+    //     //   _currentValue = value;
+    //     // });
+    //   },
+    // );
   }
 
   Widget _buildTimeRun() {
@@ -140,10 +140,10 @@ class _PlayPageState extends State<PlayPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(convertTimeToString(_maxTime),
+          Text(convertTimeToString(_timeCount),
               style: TextStyle(color: Colors.white)),
           Text(
-            convertTimeToString(_time),
+            convertTimeToString(_maxTime),
             style: TextStyle(color: Colors.white),
           ),
         ],
@@ -155,19 +155,23 @@ class _PlayPageState extends State<PlayPage>
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20, horizontal: 15),
       decoration: BoxDecoration(
-      color: Colors.black38,
-
+          color: Colors.black38,
           borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(20),
-        topRight: Radius.circular(20),
-      )),
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          )),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
             color: Colors.white,
-            icon: Icon(AntDesign.stepbackward, size: 34,),
-            onPressed: () {},
+            icon: Icon(
+              AntDesign.stepbackward,
+              size: 34,
+            ),
+            onPressed: () async {
+              await _presenter.getFileFromDivice();
+            },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -177,18 +181,28 @@ class _PlayPageState extends State<PlayPage>
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white)),
                 child: InkWell(
-                  onTap: () {
-                    if (animationController.status == AnimationStatus.completed) {
+                  onTap: () async {
+                    if (animationController.status ==
+                        AnimationStatus.completed) {
+                      // var status = await Permission.storage.status;
+                      // if (!status.isGranted) {
+                      //   await Permission.storage.request();
+                      //   await _advancedPlayer.play(
+                      //       '/storage/emulated/0/Download/music.mp3',
+                      //       isLocal: true);
+                      // }
                       setState(() {
                         animationController.reverse();
                       });
                     } else {
+                      // await _advancedPlayer.pause();
                       setState(() {
                         animationController.forward();
                       });
                     }
                   },
-                  child: AnimatedIcon(size: 34,
+                  child: AnimatedIcon(
+                      size: 34,
                       color: Colors.white,
                       icon: AnimatedIcons.play_pause,
                       progress: animationController),
@@ -196,7 +210,10 @@ class _PlayPageState extends State<PlayPage>
           ),
           IconButton(
             color: Colors.white,
-            icon: Icon(AntDesign.stepforward,size: 34,),
+            icon: Icon(
+              AntDesign.stepforward,
+              size: 34,
+            ),
             onPressed: () {},
           ),
         ],
@@ -206,12 +223,12 @@ class _PlayPageState extends State<PlayPage>
 
   void setTimer() {
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (_maxTime == 0) {
+      if (_timeCount == _maxTime) {
         _timer.cancel();
       } else {
         setState(() {
-          _maxTime--;
-          _currentValue = (100 - _maxTime) / _time;
+          _timeCount++;
+          _currentValueSeekBar = _timeCount / _maxTime;
         });
       }
     });
