@@ -1,5 +1,6 @@
 class Song {
-  String name;
+  String nameSong;
+  String nameSinger;
   String fileUrl;
-  Song({this.fileUrl, this.name = ''});
+  Song({this.fileUrl, this.nameSong = '', this.nameSinger = ''});
 }

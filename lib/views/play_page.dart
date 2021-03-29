@@ -7,8 +7,11 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:play_audio/models/song.dart';
 import 'package:play_audio/presenters/song_presenter.dart';
 import 'package:play_audio/utils/convert_value.dart';
+import 'package:play_audio/utils/navigator.dart';
 import 'package:play_audio/views/base_view.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:play_audio/views/components/custom_drawer.dart';
+import 'package:seekbar/seekbar.dart';
 
 class PlayPage extends StatefulWidget {
   PlayPage({Key key}) : super(key: key);
@@ -18,18 +21,23 @@ class PlayPage extends StatefulWidget {
 }
 
 class _PlayPageState extends State<PlayPage>
-    with SingleTickerProviderStateMixin
+    with TickerProviderStateMixin
     implements BaseView {
   SongPresenter _presenter;
   Song _song;
+  Timer _timerProgress;
   Timer _timer;
   double _currentValueSeekBar = 0.0;
-  int _timeCount = 0;
-  int _maxTime = 100;
+  int _timeCount = 0; //ms
+  int _timeCountSecond = 0; //s
+  int _maxTimeSecond = 100; //s
+  int _maxTime = 100000; //ms
   AnimationController animationController;
+  AnimationController _seekController;
   Animation<Color> colorTween;
   final _advancedPlayer = AudioPlayer();
   final audioCache = AudioCache();
+  final _key = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     _presenter = SongPresenter();
@@ -37,9 +45,10 @@ class _PlayPageState extends State<PlayPage>
     _presenter.view = this;
     animationController =
         AnimationController(vsync: this, duration: Duration(milliseconds: 200));
+    _seekController = AnimationController(vsync: this);
     animationController.forward();
-    colorTween = animationController
-        .drive(ColorTween(begin: Colors.blue, end: Colors.grey));
+    colorTween = _seekController
+        .drive(ColorTween(begin: Colors.blueAccent, end: Colors.grey));
     setTimer();
 
     super.initState();
@@ -54,12 +63,48 @@ class _PlayPageState extends State<PlayPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _key,
+      drawer: SafeArea(
+        child: buildDrawer(List<Song>.generate(10, (index) {
+          return Song(
+              fileUrl: '',
+              nameSinger: 'Singer: Alibooo',
+              nameSong: 'My song $index');
+        })),
+      ),
       backgroundColor: Colors.white,
       appBar: PreferredSize(child: Container(), preferredSize: Size.zero),
       body: Container(
         color: Colors.black54,
         child: Column(
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                InkWell(
+                  onTap: () {
+                    _key.currentState.openDrawer();
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(8),
+                    alignment: Alignment.centerLeft,
+                    child: Icon(
+                      Entypo.list,
+                      size: 30,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                  onPressed: () {},
+                )
+              ],
+            ),
             const SizedBox(
               height: 50,
             ),
@@ -81,25 +126,12 @@ class _PlayPageState extends State<PlayPage>
             _buildSeekBar(),
             _buildTimeRun(),
             const SizedBox(
-              height: 40,
+              height: 50,
             ),
             Expanded(child: _buildControl())
           ],
         ),
       ),
-      // body: Column(
-      //   mainAxisAlignment: MainAxisAlignment.center,
-      //   crossAxisAlignment: CrossAxisAlignment.center,
-      //   children: [
-      //     Text(_song.name),
-      //     RaisedButton(
-      //       onPressed: () async {
-
-      //       },
-      //       child: Text('OK'),
-      //     )
-      //   ],
-      // ),
     );
   }
 
@@ -117,21 +149,11 @@ class _PlayPageState extends State<PlayPage>
   }
 
   Widget _buildSeekBar() {
-    return LinearProgressIndicator(
-      backgroundColor: Colors.grey,
-      valueColor: colorTween,
-      value: _currentValueSeekBar / _maxTime,
+    return SeekBar(
+      value: _currentValueSeekBar,
+      progressColor: Colors.blueAccent,
+      barColor: Colors.grey,
     );
-    // return Slider(
-    //   value: _currentValue,
-    //   activeColor: Colors.blue,
-    //   inactiveColor: Colors.grey,
-    //   onChanged: (value) {
-    //     // setState(() {
-    //     //   _currentValue = value;
-    //     // });
-    //   },
-    // );
   }
 
   Widget _buildTimeRun() {
@@ -140,10 +162,10 @@ class _PlayPageState extends State<PlayPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(convertTimeToString(_timeCount),
+          Text(convertTimeToString(_timeCountSecond),
               style: TextStyle(color: Colors.white)),
           Text(
-            convertTimeToString(_maxTime),
+            convertTimeToString(_maxTimeSecond),
             style: TextStyle(color: Colors.white),
           ),
         ],
@@ -214,7 +236,12 @@ class _PlayPageState extends State<PlayPage>
               AntDesign.stepforward,
               size: 34,
             ),
-            onPressed: () {},
+            onPressed: () async {
+              var result = await _presenter.getFilePicker();
+              result.forEach((element) {
+                print(element.path);
+              });
+            },
           ),
         ],
       ),
@@ -222,15 +249,21 @@ class _PlayPageState extends State<PlayPage>
   }
 
   void setTimer() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _timerProgress = Timer.periodic(Duration(milliseconds: 10), (timer) {
       if (_timeCount == _maxTime) {
+        _timerProgress.cancel();
         _timer.cancel();
       } else {
         setState(() {
-          _timeCount++;
+          _timeCount += 10;
           _currentValueSeekBar = _timeCount / _maxTime;
         });
       }
+    });
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _timeCountSecond++;
+      });
     });
   }
 
